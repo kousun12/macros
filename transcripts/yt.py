@@ -51,9 +51,13 @@ def download_audio(url: str, transcript_dir: str, force: bool = False) -> str:
 
 def transcribe(path: str, force: bool = False):
     raw_path = os.path.join(os.path.dirname(path), "transcript.json")
-    if os.path.exists(raw_path) and not force:
-        print(f"Transcript already exists at {raw_path} - skip")
+    readable_path = os.path.join(os.path.dirname(path), "transcript.md")
+    done = os.path.exists(raw_path) and os.path.exists(readable_path)
+
+    if done and not force:
+        print(f"Transcript already exists for {path} - skip")
         return
+
     t0 = time.perf_counter()
     result = mlx_whisper.transcribe(
         path,
@@ -64,19 +68,19 @@ def transcribe(path: str, force: bool = False):
         verbose=True,
     )
     t1 = time.perf_counter()
-    print(result)
     print(f"Transcription completed in {t1 - t0:.2f} seconds.")
     final = {"text": result["text"]}
     fields = ["id", "start", "end", "text", "words"]
     final["segments"] = [
         {key: s.get(key) for key in fields} for s in result["segments"]
     ]
+
     with open(raw_path, "w") as f:
         f.write(json.dumps(final, indent=2))
-    redable_path = os.path.join(os.path.dirname(path), "transcript.md")
-    with open(redable_path, "w") as f:
+
+    with open(readable_path, "w") as f:
         for segment in final["segments"]:
-            f.write(f"[{segment['start']} --> {segment['end']}]\n\n")
+            f.write(f"##### [{segment['start']} --> {segment['end']}]\n\n")
             f.write(f"{segment['text']}\n\n")
 
 
@@ -84,8 +88,7 @@ def main(url: str, dest: str, keep_audio: bool = True, force: bool = False):
     fp = download_audio(url, transcript_dir=dest, force=force)
     transcribe(fp)
     if not keep_audio:
-        # Logic to delete audio file
-        pass
+        os.remove(fp)
 
 
 sample_url = "https://www.youtube.com/watch?v=DCbGM4mqEVw"
