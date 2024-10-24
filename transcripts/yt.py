@@ -14,6 +14,7 @@ import yt_dlp
 import argparse
 
 file_parent = os.path.dirname(os.path.abspath(__file__))
+default_dest = os.getenv("HOME") + "/Transcripts"
 audio_stem = "audio"
 audio_ext = "mp3"
 audio_file = f"{audio_stem}.{audio_ext}"
@@ -120,10 +121,9 @@ def main(
 
 
 # sample_url = "https://www.youtube.com/watch?v=DCbGM4mqEVw"
-sample_file = "/Users/robcheung/Transcripts/this-is-water--david-foster-wallace-commencement-speech_DCbGM4mqEVw/audio.mp3"
+# sample_file = "/Users/robcheung/Transcripts/this-is-water--david-foster-wallace-commencement-speech_DCbGM4mqEVw/audio.mp3"
 
 if __name__ == "__main__":
-    default_dest = os.getenv("HOME") + "/Transcripts"
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", type=str)
     parser.add_argument("--file", type=str)
@@ -145,4 +145,10 @@ if __name__ == "__main__":
     if not os.path.exists(args.dest):
         os.makedirs(args.dest)
 
-    main(file=args.file or sample_file, url=args.url, dest=args.dest, keep_audio=True)
+    main(
+        file=args.file,
+        url=args.url,
+        dest=args.dest,
+        keep_audio=args.keep,
+        force=args.force,
+    )
