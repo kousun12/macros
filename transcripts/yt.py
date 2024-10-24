@@ -1,12 +1,13 @@
 """
-pip install -U yt-dlp
 brew upgrade && brew update ffmpeg
-pip install -U certifi brotli websockets requests curl_cffi argparse mlx-whisper
+pip install -U yt-dlp argparse mlx-whisper
 """
+
 import glob
 import json
 import os
 import time
+from typing import Optional
 
 import mlx_whisper
 import yt_dlp
@@ -49,6 +50,19 @@ def download_audio(url: str, transcript_dir: str, force: bool = False) -> str:
     return file_path
 
 
+def setup_local_audio(file_path: str, dest: str) -> str:
+    stem = os.path.splitext(os.path.basename(file_path))[0]
+    new_dir = stem.lower().replace(" ", "-").replace("/", "-") + "_local"
+    dest_dir = os.path.join(dest, new_dir)
+    if not os.path.exists(dest_dir):
+        os.makedirs(dest_dir)
+    dest_file_path = os.path.join(dest_dir, audio_file)
+    if not os.path.exists(dest_file_path):
+        src_absolute = os.path.abspath(file_path)
+        os.symlink(src_absolute, dest_file_path)
+    return dest_file_path
+
+
 def transcribe(path: str, force: bool = False):
     raw_path = os.path.join(os.path.dirname(path), "transcript.json")
     readable_path = os.path.join(os.path.dirname(path), "transcript.md")
@@ -68,7 +82,8 @@ def transcribe(path: str, force: bool = False):
         verbose=True,
     )
     t1 = time.perf_counter()
-    print(f"Transcription completed in {t1 - t0:.2f} seconds.")
+    print(f"Transcription finished in {t1 - t0:.2f}s")
+
     final = {"text": result["text"]}
     fields = ["id", "start", "end", "text", "words"]
     final["segments"] = [
@@ -80,23 +95,38 @@ def transcribe(path: str, force: bool = False):
 
     with open(readable_path, "w") as f:
         for segment in final["segments"]:
-            f.write(f"##### [{segment['start']} --> {segment['end']}]\n\n")
-            f.write(f"{segment['text']}\n\n")
+            t = segment["text"]
+            if t.strip():
+                f.write(f"##### [{segment['start']} --> {segment['end']}]\n\n")
+                f.write(f"{t}\n\n")
 
 
-def main(url: str, dest: str, keep_audio: bool = True, force: bool = False):
-    fp = download_audio(url, transcript_dir=dest, force=force)
+def main(
+    file: Optional[str],
+    url: Optional[str],
+    dest: str,
+    keep_audio: bool = True,
+    force: bool = False,
+):
+    if url:
+        fp = download_audio(url, transcript_dir=dest, force=force)
+    elif file:
+        fp = setup_local_audio(file, dest)
+    else:
+        raise ValueError("Missing file or url")
     transcribe(fp)
     if not keep_audio:
         os.remove(fp)
 
 
-sample_url = "https://www.youtube.com/watch?v=DCbGM4mqEVw"
+# sample_url = "https://www.youtube.com/watch?v=DCbGM4mqEVw"
+sample_file = "/Users/robcheung/Transcripts/this-is-water--david-foster-wallace-commencement-speech_DCbGM4mqEVw/audio.mp3"
 
 if __name__ == "__main__":
     default_dest = os.getenv("HOME") + "/Transcripts"
     parser = argparse.ArgumentParser()
-    parser.add_argument("--url", type=str, default=sample_url)  # todo required=True
+    parser.add_argument("--url", type=str)
+    parser.add_argument("--file", type=str)
     parser.add_argument("--dest", type=str, default=default_dest)
     parser.add_argument(
         "--keep",
@@ -115,4 +145,4 @@ if __name__ == "__main__":
     if not os.path.exists(args.dest):
         os.makedirs(args.dest)
 
-    main(url=args.url, dest=args.dest, keep_audio=True)
+    main(file=args.file or sample_file, url=args.url, dest=args.dest, keep_audio=True)
