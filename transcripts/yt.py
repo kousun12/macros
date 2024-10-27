@@ -74,15 +74,25 @@ def transcribe(path: str, force: bool = False):
         return
 
     t0 = time.perf_counter()
-    result = mlx_whisper.transcribe(
-        path,
-        path_or_hf_repo=model_name,
-        initial_prompt=None,
-        word_timestamps=True,
-        compression_ratio_threshold=2,
-        verbose=True,
+    # result = mlx_whisper.transcribe(
+    #     path,
+    #     path_or_hf_repo=model_name,
+    #     initial_prompt=None,
+    #     word_timestamps=True,
+    #     compression_ratio_threshold=2,
+    #     verbose=True,
+    # )
+
+    from lightning_whisper_mlx import LightningWhisperMLX
+
+    whisper = LightningWhisperMLX(
+        model="whisper-large-v3-turbo", batch_size=12, quant=None
     )
+
+    result = whisper.transcribe(audio_path=path)
+
     t1 = time.perf_counter()
+    # mlx_whisper - 216s
     print(f"Transcription finished in {t1 - t0:.2f}s")
 
     final = {"text": result["text"]}
@@ -120,8 +130,8 @@ def main(
         os.remove(fp)
 
 
-# sample_url = "https://www.youtube.com/watch?v=DCbGM4mqEVw"
-# sample_file = "/Users/robcheung/Transcripts/this-is-water--david-foster-wallace-commencement-speech_DCbGM4mqEVw/audio.mp3"
+sample_url = "https://www.youtube.com/watch?v=DCbGM4mqEVw"
+sample_file = "/Users/robcheung/Transcripts/this-is-water--david-foster-wallace-commencement-speech_DCbGM4mqEVw/audio.mp3"
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -147,7 +157,7 @@ if __name__ == "__main__":
 
     main(
         file=args.file,
-        url=args.url,
+        url=args.url or sample_url,
         dest=args.dest,
         keep_audio=args.keep,
         force=args.force,
